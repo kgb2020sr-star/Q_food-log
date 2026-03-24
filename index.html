@@ -444,7 +444,16 @@ body{
   .tl,.fab-wl{font-size:9px;}
 }
 
-/* backup sheet */
+/* nickname */
+.nick-chip{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border-radius:20px;background:rgba(79,127,255,.1);border:1.5px solid rgba(79,127,255,.2);font-size:12px;font-weight:600;color:var(--ca);cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent;}
+.nick-chip:active{transform:scale(.92);}
+.nick-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+.nick-in{flex:1;border:1.5px solid rgba(0,0,0,.1);border-radius:10px;padding:9px 11px;font-size:13px;font-family:var(--ff);color:var(--ct);background:rgba(255,255,255,.7);outline:none;}
+.nick-in:focus{border-color:var(--ca);background:rgba(255,255,255,.95);}
+.nick-in.nick-key{width:80px;flex:none;color:var(--ca);font-weight:600;border-color:rgba(79,127,255,.25);background:rgba(79,127,255,.06);}
+.nick-del-btn{width:28px;height:28px;border-radius:50%;border:none;background:rgba(255,96,96,.12);color:var(--cr);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent;}
+.nick-sep{font-size:12px;color:var(--ct3);flex-shrink:0;}
+.nick-picker{display:flex;flex-wrap:wrap;gap:6px;padding:10px 0 4px;}
 .bk-section{padding:18px 20px 0;}
 .bk-title{font-size:13px;font-weight:700;color:var(--ct2);margin-bottom:10px;letter-spacing:.2px;}
 .bk-btn{display:flex;align-items:center;gap:12px;width:100%;padding:14px 16px;border-radius:16px;border:none;cursor:pointer;font-family:var(--ff);transition:all .16s;-webkit-tap-highlight-color:transparent;margin-bottom:10px;text-align:left;}
@@ -507,6 +516,23 @@ body{
       <div class="cal-wrap gl" id="calWrap">
         <div class="dow-row" id="calDow"></div>
         <div class="cgrid" id="calGrid"></div>
+      </div>
+
+      <!-- 닉네임 관리 -->
+      <div style="margin-top:16px;">
+        <div onclick="tgNickList()" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0;padding:11px 14px;border-radius:16px;cursor:pointer;-webkit-tap-highlight-color:transparent;" class="gl">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:13px;font-weight:700;color:var(--ct2);">🏷️ 닉네임 목록</span>
+            <span id="nickCountBadge" style="font-size:11px;color:var(--ct3);font-weight:500;"></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <button onclick="event.stopPropagation();openNickEdit()" style="padding:4px 10px;border-radius:14px;border:1.5px solid rgba(79,127,255,.25);background:rgba(79,127,255,.08);color:var(--ca);font-size:11px;font-weight:600;cursor:pointer;font-family:var(--ff);-webkit-tap-highlight-color:transparent;">＋ 편집</button>
+            <span id="nickListChev" style="font-size:12px;color:var(--ct3);transition:transform .25s cubic-bezier(.34,1.3,.64,1);">▾</span>
+          </div>
+        </div>
+        <div id="nickListWrap" style="max-height:0;overflow:hidden;transition:max-height .32s cubic-bezier(.4,0,.2,1);">
+          <div id="nickList" style="border-radius:0 0 16px 16px;padding:10px 14px 12px;display:flex;flex-wrap:wrap;gap:8px;background:rgba(255,255,255,.3);border:1px solid rgba(255,255,255,.55);border-top:none;backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);"></div>
+        </div>
       </div>
     </div>
 
@@ -603,6 +629,20 @@ body{
 
 <div class="toast" id="toast"></div>
 
+<!-- NICKNAME EDITOR OVERLAY -->
+<div class="ov" id="ovNick" onclick="if(event.target===this)closeNickEdit()">
+  <div class="sh gl2" id="shNick">
+    <div class="sh-hdl"></div>
+    <div class="sh-hdr">
+      <span class="sh-em">🏷️</span>
+      <div class="sh-ti">닉네임 관리</div>
+      <button class="sh-close" onclick="closeNickEdit()">✕</button>
+    </div>
+    <div class="sh-sep"></div>
+    <div class="sh-body" id="shNickBody"></div>
+  </div>
+</div>
+
 <!-- BACKUP OVERLAY -->
 <div class="ov" id="ovBk" onclick="if(event.target===this)closeBk()">
   <div class="sh gl2" id="shBk">
@@ -647,11 +687,13 @@ SEED["2026-03-24"]={pt:null,r:[{t:"08:30",f:"☕️ (우지커피) 딥카페라�
 
 // ─── STORAGE ──────────────────────────────────────
 var SK="sikdan_v4";
+var SK_LAST="sikdan_lastSave";
 function loadDB(){try{var r=localStorage.getItem(SK);if(r)return JSON.parse(r);}catch(e){}return JSON.parse(JSON.stringify(SEED));}
 function saveDB(){
-  // localStorage 백업
-  try{localStorage.setItem(SK,JSON.stringify(DB));}catch(e){}
-  // Firebase 동기화
+  try{
+    localStorage.setItem(SK,JSON.stringify(DB));
+    localStorage.setItem(SK_LAST, new Date().toISOString());
+  }catch(e){}
   fbSave();
 }
 var DB=loadDB();
@@ -764,6 +806,10 @@ function renderCal(){
   }
 }
 function chMon(d){calM+=d;if(calM>12){calM=1;calY++;}if(calM<1){calM=12;calY--;}renderCal();}
+
+// render nick list whenever calendar is shown
+var _origRenderCal=renderCal;
+renderCal=function(){_origRenderCal();renderNickList();};
 
 // ─── WEEKLY (with drag-to-scroll) ─────────────────
 function renderWeekly(){
@@ -1040,7 +1086,11 @@ function makeRow(idx,t,f,n){
       '<div class="er-nc"><input type="checkbox" id="nc'+id+'"'+(n?' checked':'')+'>'+
       '<label for="nc'+id+'">🌙</label></div>'+
     '</div>'+
-    '<textarea class="er-food" id="ef'+id+'" rows="2">'+f+'</textarea>'+
+    '<div style="flex:1;display:flex;flex-direction:column;gap:4px;">'+
+      '<textarea class="er-food" id="ef'+id+'" rows="2">'+f+'</textarea>'+
+      '<button type="button" onclick="showNickPicker(\''+id+'\')" '+
+        'style="align-self:flex-start;font-size:10px;font-weight:600;color:var(--ca);background:rgba(79,127,255,.08);border:1px solid rgba(79,127,255,.2);border-radius:8px;padding:2px 8px;cursor:pointer;font-family:var(--ff);-webkit-tap-highlight-color:transparent;">🏷️ 닉네임</button>'+
+    '</div>'+
     '<button class="er-del" onclick="delRow('+id+')">&#215;</button>'+
   '</div>';
 }
@@ -1104,6 +1154,14 @@ function openBackup(){
   var oldest=keys.length?keys.sort()[0]:"—";
   var newest=keys.length?keys.sort().slice(-1)[0]:"—";
 
+  var lastSaveRaw = localStorage.getItem(SK_LAST);
+  var lastSave = "—";
+  if(lastSaveRaw){
+    var ld = new Date(lastSaveRaw);
+    lastSave = ld.getFullYear()+"."+p2(ld.getMonth()+1)+"."+p2(ld.getDate())
+      +" "+p2(ld.getHours())+":"+p2(ld.getMinutes());
+  }
+
   var html=
     '<div class="bk-section">'+
       '<div class="bk-title">현재 저장된 데이터</div>'+
@@ -1112,6 +1170,7 @@ function openBackup(){
         '<div class="bk-stat-row"><span class="lbl">총 식사 기록</span><span class="val">'+meals+'건</span></div>'+
         '<div class="bk-stat-row"><span class="lbl">첫 기록</span><span class="val">'+oldest+'</span></div>'+
         '<div class="bk-stat-row"><span class="lbl">최근 기록</span><span class="val">'+newest+'</span></div>'+
+        '<div class="bk-stat-row"><span class="lbl">마지막 저장</span><span class="val" style="color:var(--ca);">'+lastSave+'</span></div>'+
       '</div>'+
       '<div class="bk-warn">⚠️ 브라우저 캐시를 지우면 데이터가 삭제돼요.<br>정기적으로 JSON 파일로 백업해두세요!</div>'+
 
@@ -1362,6 +1421,118 @@ function importFile(e){
   };
   reader.readAsText(file);
   e.target.value=""; // reset so same file can be re-selected
+}
+
+// ─── NICKNAME DATA ────────────────────────────────
+var NK_SK="sikdan_nick";
+var NK_DEFAULT=[
+  {k:"닭소",   v:"닭가슴살 소시지"},
+  {k:"뜨아",   v:"☕️ HOT 아메리카노"},
+  {k:"아아",   v:"☕️ 아이스 아메리카노"},
+  {k:"딥카페", v:"☕️ (우지커피) 딥카페라떼"},
+  {k:"파바",   v:"파리바게트"},
+  {k:"뚜쥬",   v:"뚜레쥬르"},
+  {k:"마녀스프",v:"(플라이밀) 마녀스프"},
+  {k:"가짜맥주",v:"논알콜 맥주"},
+  {k:"링티",   v:"링티 레몬라임맛"}
+];
+function loadNK(){try{var r=localStorage.getItem(NK_SK);if(r)return JSON.parse(r);}catch(e){}return JSON.parse(JSON.stringify(NK_DEFAULT));}
+function saveNK(){try{localStorage.setItem(NK_SK,JSON.stringify(NICKS));}catch(e){}}
+var NICKS=loadNK();
+
+function renderNickList(){
+  var el=document.getElementById("nickList"); if(!el) return;
+  // 카운트 뱃지 업데이트
+  var badge=document.getElementById("nickCountBadge");
+  if(badge) badge.textContent=NICKS.length?"("+NICKS.length+"개)":"";
+  if(!NICKS.length){el.innerHTML='<span style="font-size:12px;color:var(--ct3);">닉네임이 없어요. 편집 버튼으로 추가해보세요!</span>';return;}
+  el.innerHTML=NICKS.map(function(n){
+    return '<div class="nick-chip" title="'+n.k+' → '+n.v+'">'+n.k+'</div>';
+  }).join("");
+}
+
+function tgNickList(){
+  var wrap=document.getElementById("nickListWrap");
+  var chev=document.getElementById("nickListChev");
+  if(!wrap||!chev) return;
+  var open=wrap.style.maxHeight&&wrap.style.maxHeight!=="0px";
+  wrap.style.maxHeight=open?"0":"300px";
+  chev.style.transform=open?"":"rotate(180deg)";
+}
+
+function openNickEdit(){
+  var html='<div style="padding:14px 18px 20px;">';
+  html+='<div style="font-size:11px;color:var(--ct3);margin-bottom:12px;">닉네임 → 실제 음식명 순서로 입력해주세요</div>';
+  html+='<div id="nickRows">';
+  NICKS.forEach(function(n,i){
+    html+='<div class="nick-row" id="nr'+i+'">'+
+      '<input class="nick-in nick-key" placeholder="닉네임" value="'+n.k+'" id="nk'+i+'">'+
+      '<span class="nick-sep">→</span>'+
+      '<input class="nick-in" placeholder="실제 음식명" value="'+n.v+'" id="nv'+i+'">'+
+      '<button class="nick-del-btn" onclick="this.parentElement.remove()">×</button>'+
+    '</div>';
+  });
+  html+='</div>';
+  html+='<button onclick="addNickRow()" style="width:100%;padding:9px;border-radius:12px;border:1.5px dashed rgba(79,127,255,.3);background:rgba(79,127,255,.04);color:var(--ca);font-size:13px;font-weight:600;font-family:var(--ff);cursor:pointer;margin-bottom:10px;">＋ 닉네임 추가</button>';
+  html+='<button onclick="saveNicks()" style="width:100%;padding:13px;border-radius:16px;border:none;background:var(--ca);color:#fff;font-size:15px;font-weight:700;font-family:var(--ff);cursor:pointer;box-shadow:0 6px 20px rgba(79,127,255,.32);">저장하기</button>';
+  html+='</div>';
+  document.getElementById("shNickBody").innerHTML=html;
+  document.getElementById("ovNick").classList.add("op");
+  document.body.style.overflow="hidden";
+}
+function closeNickEdit(){
+  document.getElementById("ovNick").classList.remove("op");
+  document.body.style.overflow="";
+}
+function addNickRow(){
+  var wrap=document.getElementById("nickRows"); if(!wrap) return;
+  var i="n"+Date.now();
+  var div=document.createElement("div");
+  div.className="nick-row"; div.id="nr"+i;
+  div.innerHTML='<input class="nick-in nick-key" placeholder="닉네임" id="nk'+i+'">'+
+    '<span class="nick-sep">→</span>'+
+    '<input class="nick-in" placeholder="실제 음식명" id="nv'+i+'">'+
+    '<button class="nick-del-btn" onclick="this.parentElement.remove()">×</button>';
+  wrap.appendChild(div);
+  div.querySelector(".nick-key").focus();
+}
+function saveNicks(){
+  var rows=document.getElementById("nickRows").querySelectorAll(".nick-row");
+  var arr=[];
+  rows.forEach(function(row){
+    var ins=row.querySelectorAll("input");
+    if(ins.length<2) return;
+    var k=ins[0].value.trim(), v=ins[1].value.trim();
+    if(k&&v) arr.push({k:k,v:v});
+  });
+  NICKS=arr; saveNK();
+  renderNickList();
+  closeNickEdit();
+  toast("✅ 닉네임 저장됐어요!");
+}
+
+// 닉네임 피커 — textarea 아래 버튼으로 표시
+function showNickPicker(rowId){
+  var old=document.getElementById("np"+rowId);
+  if(old){old.remove();return;}
+  var ta=document.getElementById("ef"+rowId); if(!ta||!NICKS.length) return;
+  var picker=document.createElement("div");
+  picker.id="np"+rowId; picker.className="nick-picker";
+  NICKS.forEach(function(n){
+    var btn=document.createElement("button");
+    btn.className="nick-chip";
+    btn.style.cssText="font-size:11px;padding:4px 9px;";
+    btn.textContent=n.k;
+    btn.type="button";
+    btn.onclick=function(){
+      var cur=ta.value.trim();
+      ta.value=cur?(cur+" + "+n.v):n.v;
+      picker.remove();
+    };
+    picker.appendChild(btn);
+  });
+  // 피커를 textarea 다음에 삽입
+  ta.insertAdjacentElement("afterend", picker);
 }
 
 // ─── TAB SWITCH ───────────────────────────────────

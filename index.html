@@ -748,23 +748,12 @@ function renderCal(){
     var inner='<div class="dn-w"><div class="dn">'+d+"</div></div>";
 
     if(data){
-      // emoji + cycle indicator
+      // 요일 하트 + 주기 이모지
       var cyc=cycEmoji(k);
       inner+='<div class="cc-em">'+dowem(k)+(cyc?' <span style="font-size:9px;">'+cyc+'</span>':'')+"</div>";
-      // PT badge
+      // PT 우선, 없으면 개인운동만 표시
       if(data.pt) inner+='<div class="cc-pt">PT '+data.pt+"</div>";
-      if(data.ex) inner+='<div class="cc-pt" style="background:#FF9F43;">💪 '+data.ex+"</div>";
-      // preview: first 1-2 non-night rows, show time + food (short)
-      var rows=data.r.filter(function(r){return !r.n;});
-      if(rows.length>0){
-        var lines="";
-        for(var i2=0;i2<Math.min(2,rows.length);i2++){
-          var r=rows[i2];
-          var txt=(r.t?(r.t+" "):"")+(r.f||"").replace(/☕️|🌙/g,"").trim().substring(0,8);
-          lines+=txt+(i2<Math.min(2,rows.length)-1?"<br>":"");
-        }
-        inner+='<div class="cc-prev">'+lines+"</div>";
-      }
+      else if(data.ex) inner+='<div class="cc-pt" style="background:#FF9F43;">💪</div>';
     } else {
       inner+='<div class="cc-add">＋</div>';
     }
